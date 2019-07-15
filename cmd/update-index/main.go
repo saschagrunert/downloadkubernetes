@@ -219,6 +219,8 @@ func main() {
 	sort.Strings(bins)
 	arch := Binaries(binaries).AllArch()
 	sort.Strings(arch)
+	oses := Binaries(binaries).AllOSes()
+	sort.Strings(oses)
 
 	if err := tmpl.Execute(&buf, struct {
 		Binaries    Binaries
@@ -228,7 +230,7 @@ func main() {
 		AllArch     []string
 	}{
 		Binaries:    binaries,
-		AllOSes:     Binaries(binaries).AllOSes(),
+		AllOSes:     oses,
 		AllBins:     bins,
 		AllVersions: stableVersions[:numberOfVersions],
 		AllArch:     arch,
