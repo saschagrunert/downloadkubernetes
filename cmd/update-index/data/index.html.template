@@ -11,8 +11,8 @@
 <body>
     <section class="hero is-primary">
         <div class="hero-body">
-            <div class="columns">
-                <div class="column">
+            <div class="columns is-vcentered">
+                <div class="column is-three-fifths">
                     <div class="container">
                         <h1 class="title">
                             Download Kubernetes
@@ -20,6 +20,11 @@
                         <h2 class="subtitle">
                             An easier way to get the binaries you need (or a link to them)
                         </h2>
+                    </div>
+                </div>
+                <div class="column has-text-centered">
+                    <div class="container">
+                        <button class="button" id="remember-me">Remember me</button>
                     </div>
                 </div>
                 <div class="column has-text-right">
