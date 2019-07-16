@@ -1,4 +1,5 @@
 require('./mystyles.scss');
+require('./rememberme.js');
 
 ["os", "arch", "version"].map(function(val){
     eventListener(val);

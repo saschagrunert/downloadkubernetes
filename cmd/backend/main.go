@@ -6,23 +6,26 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/chuckha/downloadkubernetes/bakers"
 	"github.com/chuckha/downloadkubernetes/logging"
 	"github.com/chuckha/downloadkubernetes/models"
-	"github.com/chuckha/downloadkubernetes/models/stores/sqlite3"
+	"github.com/chuckha/downloadkubernetes/models/stores/sqlite"
 )
 
 const (
 	cookieName       = "downloadkubernetes"
 	cookieExpiryDays = 30
+	dbname           = "downloadkubernetes"
 )
 
 // serverConfig holds the command line arguments to set various options on the server.
 type serverConfig struct {
 	addr string
 	port string
+	dev  bool
 }
 
 func main() {
@@ -30,14 +33,21 @@ func main() {
 	fs := flag.NewFlagSet("config", flag.ExitOnError)
 	fs.StringVar(&args.port, "port", "9999", "The port to listen on")
 	fs.StringVar(&args.addr, "address", "127.0.0.1", "TCP address to listen on")
+	fs.BoolVar(&args.dev, "dev", false, "enable the development server")
+	fs.Parse(os.Args[1:])
 
 	mymux := http.NewServeMux()
+	db, err := sqlite.NewStore(dbname)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	s := &Server{
 		&http.Server{
 			Addr:    fmt.Sprintf("%s:%s", args.addr, args.port),
 			Handler: mymux,
 		},
-		&sqlite3.Store{},
+		db,
 		bakers.NewDumbBaker(10, 5),
 		args.dev,
 		&logging.Log{},
@@ -47,6 +57,11 @@ func main() {
 	mymux.HandleFunc("/save-download", s.LogRequest(s.EnableCORS(s.SaveDownload)))
 	mymux.HandleFunc("/recent-downloads", s.LogRequest(s.EnableCORS(s.Recent)))
 	fmt.Println("Listening on", s.Addr)
+	mode := "prod"
+	if args.dev {
+		mode = "dev"
+	}
+	fmt.Printf("Running in %s mode\n", mode)
 	panic(s.ListenAndServe())
 }
 
@@ -67,6 +82,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 // This is entirely for interacting with some storage backend.
 type Store interface {
 	SaveDownload(*models.Download) error
+	SaveUserID(*models.UserID) error
 }
 
 // Baker will give us cookies.
@@ -112,11 +128,17 @@ func (s *Server) Recent(w http.ResponseWriter, r *http.Request) {
 
 // Cookie sets the cookie if there is none or refreshes the cookie
 func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
-	// get the cookie
 	c, err := r.Cookie(cookieName)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			http.SetCookie(w, s.Baker.NewCookieForRequest(r))
+			cookie := s.Baker.NewCookieForRequest(r)
+			userID := &models.UserID{
+				ID:         cookie.Value,
+				CreateTime: time.Now(),
+				ExpireTime: cookie.Expires,
+			}
+			s.Store.SaveUserID(userID)
+			http.SetCookie(w, cookie)
 			return
 		}
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

@@ -5,6 +5,8 @@ go 1.12
 require (
 	cloud.google.com/go v0.40.0
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
+	github.com/mattn/go-sqlite3 v1.10.0
+	github.com/pkg/errors v0.8.1
 	go.opencensus.io v0.22.0 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/sys v0.0.0-20190621203818-d432491b9138 // indirect
