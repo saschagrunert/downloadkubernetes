@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/chuckha/downloadkubernetes/bakers"
+	"github.com/chuckha/downloadkubernetes/logging"
 	"github.com/chuckha/downloadkubernetes/models"
 	"github.com/chuckha/downloadkubernetes/models/stores/sqlite3"
 )
@@ -18,6 +19,7 @@ const (
 	cookieExpiryDays = 30
 )
 
+// serverConfig holds the command line arguments to set various options on the server.
 type serverConfig struct {
 	addr string
 	port string
@@ -37,39 +39,56 @@ func main() {
 		},
 		&sqlite3.Store{},
 		bakers.NewDumbBaker(10, 5),
+		args.dev,
+		&logging.Log{},
 	}
 
-	mymux.HandleFunc("/cookie", s.Cookie)
-	mymux.HandleFunc("/save-download", s.SaveDownload)
-	mymux.HandleFunc("/recent-downloads", s.Recent)
+	mymux.HandleFunc("/cookie", s.LogRequest(s.EnableCORS(s.Cookie)))
+	mymux.HandleFunc("/save-download", s.LogRequest(s.EnableCORS(s.SaveDownload)))
+	mymux.HandleFunc("/recent-downloads", s.LogRequest(s.EnableCORS(s.Recent)))
 	fmt.Println("Listening on", s.Addr)
 	panic(s.ListenAndServe())
 }
 
-// Features
-// * Recently downloaded
-// * needs a place to store data
-// What data? user, date/time, filterset, binary, version
+// responseWriter exists to let us track the status that gets written to a
+// response. Used for logging.
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
 
+// WriteHeader wraps the http.ResponseWriter.WriteHeader function.
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Store are the functions used on the store object.
+// This is entirely for interacting with some storage backend.
 type Store interface {
 	SaveDownload(*models.Download) error
 }
+
+// Baker will give us cookies.
 type Baker interface {
 	NewCookieForRequest(*http.Request) *http.Cookie
 }
 
+// Logger are all the logger functions the server needs
+type Logger interface {
+	Info(string)
+	Infof(string, ...interface{})
+	Error(error)
+}
+
+// The server itself is an http.Server and then some.
 type Server struct {
 	*http.Server
 	Store Store
 	Baker Baker
+	dev   bool
+	Log   Logger
 }
-
-// a button that says "remember me"
-// once clicked it changes to "forget me"
-// a cookie is issued
-// activity is tracked
-// once clicked it changes to "remember me"
-// cookie is logged as inactive
 
 // Recent returns the 5 most recent downloads a user has made
 func (s *Server) Recent(w http.ResponseWriter, r *http.Request) {
@@ -149,15 +168,22 @@ func (s *Server) SaveDownload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// http server
-//   all functions
-//      get request
-//      extract user from cookie, ensure valid
-//      return data associated with user
+// LogRequest wraps handlers and logs them.
+func (s *Server) LogRequest(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rw := &responseWriter{w, 200}
+		fn(rw, r)
+		s.Log.Infof("[%d] %s %s %s\n", rw.status, r.Method, r.URL.String(), w.Header().Get("Set-Cookie"))
+	}
+}
 
-// What data? Recently downloaded.
-//
-
-// endpoints
-// recently downloaded (3 unique)
-// saved filterset
+// EnableCORS will eneable cors if the server is running in dev mode.
+func (s *Server) EnableCORS(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.dev {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3333")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		fn(w, r)
+	}
+}

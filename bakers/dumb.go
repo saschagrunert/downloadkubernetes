@@ -11,7 +11,8 @@ const (
 	cookieName = "downloadkubernetes"
 )
 
-// DumbBaker is a baker that is not smart.
+// DumbBaker implements Baker which is something that makes cookies.
+// This abstraction lets us potentially use smarter ID assigning later on. YAGNI?
 type DumbBaker struct {
 	Random   *rand.Rand
 	IDLength int
