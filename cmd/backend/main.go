@@ -54,8 +54,8 @@ func main() {
 	}
 
 	mymux.HandleFunc("/cookie", s.LogRequest(s.EnableCORS(s.Cookie)))
-	mymux.HandleFunc("/save-download", s.LogRequest(s.EnableCORS(s.SaveDownload)))
-	mymux.HandleFunc("/recent-downloads", s.LogRequest(s.EnableCORS(s.Recent)))
+	mymux.HandleFunc("/save-download", s.LogRequest(s.EnableCORS(s.CookieRequired(s.SaveDownload))))
+	mymux.HandleFunc("/recent-downloads", s.LogRequest(s.EnableCORS(s.CookieRequired(s.Recent))))
 	fmt.Println("Listening on", s.Addr)
 	mode := "prod"
 	if args.dev {
@@ -81,6 +81,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 // Store are the functions used on the store object.
 // This is entirely for interacting with some storage backend.
 type Store interface {
+	GetRecentDownloads(*models.UserID) ([]*models.Download, error)
 	SaveDownload(*models.Download) error
 	SaveUserID(*models.UserID) error
 }
@@ -107,23 +108,27 @@ type Server struct {
 }
 
 // Recent returns the 5 most recent downloads a user has made
-func (s *Server) Recent(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie(cookieName)
+func (s *Server) Recent(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
+	downloads, err := s.Store.GetRecentDownloads(&models.UserID{
+		ID: c.Value,
+	})
 	if err != nil {
-		if err == http.ErrNoCookie {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
-		}
+		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
-	// make sure the cookie is not expired
-	if c.Expires.Before(time.Now()) {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+	out, err := json.Marshal(downloads)
+	if err != nil {
+		s.Log.Error(err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	w.Header().Add("Content-Type", "application/json")
+	if _, err := w.Write(out); err != nil {
+		s.Log.Error(err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
 
 // Cookie sets the cookie if there is none or refreshes the cookie
@@ -141,6 +146,7 @@ func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 			http.SetCookie(w, cookie)
 			return
 		}
+		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -153,38 +159,24 @@ func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 }
 
 // SaveDownload is the endpoint that saves an instance of a user downloading something
-func (s *Server) SaveDownload(w http.ResponseWriter, r *http.Request) {
-	// get the cookie
-	c, err := r.Cookie(cookieName)
-	if err != nil {
-		if err == http.ErrNoCookie {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
-		}
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	// make sure the cookie is not expired
-	if c.Expires.Before(time.Now()) {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
+func (s *Server) SaveDownload(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
 	// read the request body and deserialize to a Download object
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	download := &models.Download{}
 	if err := json.Unmarshal(body, download); err != nil {
+		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 	download.User = c.Value
 	if err := s.Store.SaveDownload(download); err != nil {
+		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -207,5 +199,30 @@ func (s *Server) EnableCORS(fn http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 		fn(w, r)
+	}
+}
+
+type cookieRequiredHandler func(w http.ResponseWriter, r *http.Request, cookie *http.Cookie)
+
+func (s *Server) CookieRequired(fn cookieRequiredHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// get the cookie
+		c, err := r.Cookie(cookieName)
+		if err != nil {
+			if err == http.ErrNoCookie {
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			}
+			s.Log.Error(err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		// make sure the cookie is not expired
+		if c.Expires.Before(time.Now()) {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		fn(w, r, c)
 	}
 }

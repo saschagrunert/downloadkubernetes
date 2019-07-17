@@ -7,12 +7,14 @@ import (
 
 // Download represents a single instance of someone downloading something
 type Download struct {
-	User       string
-	Downloaded time.Time
-	FilterSet  int
-	Binary     string
-	Version    string
-	URL        string
+	User            string
+	Downloaded      time.Time
+	FilterSet       int
+	OperatingSystem string
+	Architecture    string
+	Version         string
+	Binary          string
+	URL             string
 }
 
 func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
@@ -23,12 +25,37 @@ func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
 	user text PRIMARY KEY,
 	downloaded text,
 	filterset integer,
-	binary text,
+	operating_system text,
+	architecture text,
 	version text,
+	binary text,
 	url text
 );`
 	default:
-		return fmt.Sprintf("Unknown flaor %q", flavor)
+		return fmt.Sprintf("Unknown flavor %q", flavor)
+	}
+}
+
+func (d *Download) SelectRecentDownloads(flavor string) string {
+	switch flavor {
+	case "sqlite3":
+		return `SELECT operating_system, architecture, version, binary FROM downloads LIMIT ? WHERE user = ?`
+	default:
+		return fmt.Sprintf("Unknown flavor %q", flavor)
+	}
+}
+
+func (d *Download) InsertIntoPreparedStatements(flavor string) string {
+	switch flavor {
+	case "sqlite3":
+		return `INSERT INTO downloads (
+	user, downloaded, filterset, operating_system, archietcture, version, binary, url
+)
+VALUES (
+	?, ?, ?. ?, ?, ?, ?, ?
+)`
+	default:
+		return fmt.Sprintf("Unknown flavor %q", flavor)
 	}
 }
 
