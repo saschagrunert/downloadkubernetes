@@ -90,7 +90,7 @@ func (s *Store) SaveUserID(userID *models.UserID) error {
 }
 
 func (s *Store) GetRecentDownloads(userID *models.UserID, limit int) ([]*models.Download, error) {
-	rows, err := s.getRecentDL.Query(limit, userID.ID)
+	rows, err := s.getRecentDL.Query(userID.ID, limit)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

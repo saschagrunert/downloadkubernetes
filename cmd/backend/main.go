@@ -19,6 +19,7 @@ const (
 	cookieName       = "downloadkubernetes"
 	cookieExpiryDays = 30
 	dbname           = "downloadkubernetes"
+	recentDownloads  = 5
 )
 
 // serverConfig holds the command line arguments to set various options on the server.
@@ -81,7 +82,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 // Store are the functions used on the store object.
 // This is entirely for interacting with some storage backend.
 type Store interface {
-	GetRecentDownloads(*models.UserID) ([]*models.Download, error)
+	GetRecentDownloads(*models.UserID, int) ([]*models.Download, error)
 	SaveDownload(*models.Download) error
 	SaveUserID(*models.UserID) error
 }
@@ -111,7 +112,7 @@ type Server struct {
 func (s *Server) Recent(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
 	downloads, err := s.Store.GetRecentDownloads(&models.UserID{
 		ID: c.Value,
-	})
+	}, recentDownloads)
 	if err != nil {
 		s.Log.Error(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

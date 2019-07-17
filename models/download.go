@@ -39,7 +39,7 @@ func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
 func (d *Download) SelectRecentDownloads(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `SELECT operating_system, architecture, version, binary FROM downloads LIMIT ? WHERE user = ?`
+		return `SELECT operating_system, architecture, version, binary FROM downloads WHERE user = ? LIMIT ?`
 	default:
 		return fmt.Sprintf("Unknown flavor %q", flavor)
 	}
@@ -49,10 +49,10 @@ func (d *Download) InsertIntoPreparedStatements(flavor string) string {
 	switch flavor {
 	case "sqlite3":
 		return `INSERT INTO downloads (
-	user, downloaded, filterset, operating_system, archietcture, version, binary, url
+	user, downloaded, filterset, operating_system, architecture, version, binary, url
 )
 VALUES (
-	?, ?, ?. ?, ?, ?, ?, ?
+	?, ?, ?, ?, ?, ?, ?, ?
 )`
 	default:
 		return fmt.Sprintf("Unknown flavor %q", flavor)
