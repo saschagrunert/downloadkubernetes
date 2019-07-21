@@ -16,14 +16,15 @@ func NewCache() *Cache {
 	}
 }
 
-func (c *Cache) Handle(lc *events.LinkCopy) {
+func (c *Cache) Handle(lc *events.LinkCopy) error {
 	r, ok := c.recents[lc.UserID]
 	if !ok {
-		c.recents[lc.UserID] = ring.New(5)
-		r = c.recents[lc.UserID]
+		r = ring.New(5)
+		c.recents[lc.UserID] = r
 	}
 	r.Value = *lc
 	c.recents[lc.UserID] = r.Next()
+	return nil
 }
 
 func (c *Cache) ID() string {

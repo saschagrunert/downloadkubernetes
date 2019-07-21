@@ -13,9 +13,6 @@ function copyLinkEvent(data) {
             if (!response.ok) {
                 console.log("WOW WTF");
             }
-            if (response.ok) {
-                console.log("UES OSDFK")
-            }
             console.log(response);
         });
 }

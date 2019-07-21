@@ -115,7 +115,7 @@ func WithRecentGetter(r RecentGetter) Option {
 // Recent returns the 5 most recent downloads a user has made
 func (s *Server) Recent(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
 	recentURLs := s.RecentGetter.Recents(c.Value)
-	s.Log.Infof("%v", recentURLs)
+	s.Log.Infof("Recent URLS: %v", recentURLs)
 
 	out, err := json.Marshal(recentURLs)
 	if err != nil {
@@ -138,7 +138,7 @@ func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == http.ErrNoCookie {
 			cookie := s.Baker.NewCookieForRequest(r)
-			s.Proxy.WriteUserIDEvent(events.NewUserID(cookie.Value, events.Created))
+			go s.Proxy.WriteUserIDEvent(events.NewUserID(cookie.Value, events.Created))
 			http.SetCookie(w, cookie)
 			return
 		}
@@ -195,8 +195,7 @@ func (s *Server) CopyLinkEvent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	fmt.Println(userID, clr.URL)
-	s.Proxy.WriteCopyEvent(events.NewLinkCopyEvent(userID, clr.URL))
+	go s.Proxy.WriteCopyEvent(events.NewLinkCopyEvent(userID, clr.URL))
 }
 
 // responseWriter exists to let us track the status that gets written to a
@@ -239,7 +238,6 @@ type cookieRequiredHandler func(w http.ResponseWriter, r *http.Request, cookie *
 func (s *Server) CookieRequired(fn cookieRequiredHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// get the cookie
-		s.Log.Infof("Request: %v", r)
 		c, err := r.Cookie(cookieName)
 		if err != nil {
 			if err == http.ErrNoCookie {

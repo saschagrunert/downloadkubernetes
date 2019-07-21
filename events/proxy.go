@@ -4,22 +4,23 @@ package events
 // can register another object?
 
 type CopyEventListener interface {
-	Handle(*LinkCopy) // what should handle th errors?
+	Handle(*LinkCopy) error
 	ID() string
 }
 type UserIDEventListener interface {
-	Handle(*UserID) // what should handle the errors?
+	Handle(*UserID) error
 	ID() string
 }
 
 type Proxy struct {
+	Log                  Logger
 	CopyEvents           chan *LinkCopy
 	CopyEventListeners   map[string]CopyEventListener
 	UserIDEvents         chan *UserID
 	UserIDEventListeners map[string]UserIDEventListener
 }
 
-func NewProxy() *Proxy {
+func NewProxy(log Logger) *Proxy {
 	return &Proxy{
 		CopyEvents:           make(chan *LinkCopy),
 		CopyEventListeners:   map[string]CopyEventListener{},
@@ -33,11 +34,15 @@ func (p *Proxy) StartListeners() {
 		select {
 		case copyEvent := <-p.CopyEvents:
 			for _, listener := range p.CopyEventListeners {
-				listener.Handle(copyEvent)
+				if err := listener.Handle(copyEvent); err != nil {
+					p.Log.Error(err)
+				}
 			}
 		case userIDEvent := <-p.UserIDEvents:
 			for _, listener := range p.UserIDEventListeners {
-				listener.Handle(userIDEvent)
+				if err := listener.Handle(userIDEvent); err != nil {
+					p.Log.Error(err)
+				}
 			}
 		}
 	}

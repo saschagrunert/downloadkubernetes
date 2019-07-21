@@ -39,22 +39,24 @@ func main() {
 	}
 	httpLogger := logging.NewLog("http-logger")
 	eventLogger := logging.NewLog("event-logger")
-
+	proxyLogger := logging.NewLog("proxy")
 	// TODO understand fmt.Prinltn from a goroutine
-	p := events.NewProxy()
-	// Whenever a linkCopy event is emitted it will be saved
-	p.RegisterCopyEventListener(&events.SaveLinkCopyHandler{
-		Log:   eventLogger,
-		Store: db,
-	})
-	// Handler is called whenever a SaveUserIDEvent is emitted
-	p.RegisterUserIDEventListeners(&events.SaveUserIDCreateHandler{
-		Log:   eventLogger,
-		Store: db,
-	})
+	p := events.NewProxy(proxyLogger)
 
 	c := backend.NewCache()
+	saveLinkCopyHandler := &events.SaveLinkCopyHandler{
+		Log:   eventLogger,
+		Store: db,
+	}
+	saveUserIDCreateHandler := &events.SaveUserIDCreateHandler{
+		Log:   eventLogger,
+		Store: db,
+	}
+	// Register handlers
 	p.RegisterCopyEventListener(c)
+	p.RegisterCopyEventListener(saveLinkCopyHandler)
+	p.RegisterUserIDEventListeners(saveUserIDCreateHandler)
+	go p.StartListeners()
 
 	mymux := http.NewServeMux()
 

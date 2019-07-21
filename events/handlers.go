@@ -2,6 +2,7 @@ package events
 
 import (
 	"github.com/chuckha/downloadkubernetes/models"
+	"github.com/pkg/errors"
 )
 
 type Logger interface {
@@ -23,11 +24,8 @@ type SaveLinkCopyHandler struct {
 	Store SaveCopyLink
 }
 
-func (s *SaveLinkCopyHandler) Handle(l *LinkCopy) {
-	s.Log.Infof("HELLO WORLD????????? %v", l)
-	if err := s.Store.SaveCopyLinkEvent(l); err != nil {
-		s.Log.Error(err)
-	}
+func (s *SaveLinkCopyHandler) Handle(l *LinkCopy) error {
+	return errors.WithStack(s.Store.SaveCopyLinkEvent(l))
 }
 func (h *SaveLinkCopyHandler) ID() string {
 	return "save-link-copy-handler"
@@ -41,15 +39,12 @@ type SaveUserIDCreateHandler struct {
 	Store SaveUserIDEvent
 }
 
-func (s *SaveUserIDCreateHandler) Handle(u *UserID) {
+func (s *SaveUserIDCreateHandler) Handle(u *UserID) error {
 	// Filter out non create actions
 	if u.Action != Created {
-		return
+		return nil
 	}
-	s.Log.Infof("%#v", u)
-	if err := s.Store.SaveUserIDEvent(u); err != nil {
-		s.Log.Error(err)
-	}
+	return errors.WithStack(s.Store.SaveUserIDEvent(u))
 }
 func (h *SaveUserIDCreateHandler) ID() string {
 	return "save-user-id-event-handler"

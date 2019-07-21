@@ -7,34 +7,23 @@ function getRecents() {
         return;
     }
 
-    let recentRequest = new Request(requests.endpoint('/recent-downloads'));
+    let recentRequest = requests.endpoint('/recent-downloads');
 
-    fetch(recentRequest, requests.options()).then((response) => {
-        if (!response.ok) {
-            return;
-        }
-        let body = readEntireStream(response.body.getReader())
-        console.log("recents", body);
-    })
+    let options = requests.options();
+    options['cache'] = 'no-cache';
+    fetch(recentRequest, requests.options())
+        .then((response) => {
+            if (!response.ok) {
+                console.log(response);
+                return;
+            }
+            response.json().then(data => console.log(data));
+        })
 }
 
-// readEntireStream reads the whole reader and returns the contents
-
-/**
- * @param {ReadableStreamDefaultReader} [reader]
- */
-function readEntireStream(reader) {
-    let partial = ""
-    reader.read().then(function processValue({done, value}) {
-        if (done) {
-            partial += value;
-            return partial
-        }
-        partial += value;
-        return reader.read().then(processValue);
-    })
+function doSomething(data) {
+    console.log(JSON.parse(data))
 }
-
 
 module.exports = {
     "fetch": getRecents,
