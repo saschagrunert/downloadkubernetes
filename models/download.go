@@ -7,14 +7,21 @@ import (
 
 // Download represents a single instance of someone downloading something
 type Download struct {
-	User            string
-	Downloaded      time.Time
-	FilterSet       int
+	// set in backend
+	User string
+	// set in backend
+	Downloaded time.Time
+	// URL is the download URL
+	URL string
+	// attempt at turning this into useful query params
 	OperatingSystem string
 	Architecture    string
 	Version         string
 	Binary          string
-	URL             string
+}
+
+func (d *Download) InsertQueryName() string {
+	return "download-insert"
 }
 
 func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
@@ -24,7 +31,6 @@ func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
 (
 	user text PRIMARY KEY,
 	downloaded text,
-	filterset integer,
 	operating_system text,
 	architecture text,
 	version text,
@@ -39,7 +45,7 @@ func (d *Download) CreateTableIfNotExistsQueries(flavor string) string {
 func (d *Download) SelectRecentDownloads(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `SELECT operating_system, architecture, version, binary FROM downloads WHERE user = ? LIMIT ?`
+		return `SELECT operating_system, architecture, version, binary FROM downloads WHERE user = ? ORDER BY downloaded LIMIT ?`
 	default:
 		return fmt.Sprintf("Unknown flavor %q", flavor)
 	}
@@ -49,45 +55,10 @@ func (d *Download) InsertIntoPreparedStatements(flavor string) string {
 	switch flavor {
 	case "sqlite3":
 		return `INSERT INTO downloads (
-	user, downloaded, filterset, operating_system, architecture, version, binary, url
+	user, downloaded, operating_system, architecture, version, binary, url
 )
 VALUES (
-	?, ?, ?, ?, ?, ?, ?, ?
-)`
-	default:
-		return fmt.Sprintf("Unknown flavor %q", flavor)
-	}
-}
-
-// UserID identifies a single user. A human can have many, many IDs.
-type UserID struct {
-	ID         string
-	CreateTime time.Time
-	ExpireTime time.Time
-}
-
-func (u *UserID) CreateTableIfNotExistsQueries(flavor string) string {
-	switch flavor {
-	case "sqlite3":
-		return `CREATE TABLE IF NOT EXISTS user_ids
-(
-	id text PRIMARY KEY,
-	create_time text,
-	expire_time text
-);`
-	default:
-		return fmt.Sprintf("Unknown flavor %q", flavor)
-	}
-}
-
-func (u *UserID) InsertIntoPreparedStatements(flavor string) string {
-	switch flavor {
-	case "sqlite3":
-		return `INSERT INTO user_ids (
-	id, create_time, expire_time
-)
-VALUES (
-	?, ?, ?
+	?, ?, ?, ?, ?, ?, ?
 )`
 	default:
 		return fmt.Sprintf("Unknown flavor %q", flavor)

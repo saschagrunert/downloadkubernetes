@@ -2,16 +2,27 @@ package logging
 
 import "fmt"
 
-type Log struct{}
+type Log struct {
+	Name string
+}
+
+func NewLog(name string) *Log {
+	if name == "" {
+		name = "default"
+	}
+	return &Log{
+		Name: name,
+	}
+}
 
 func (l *Log) Info(msg string) {
-	fmt.Println(msg)
+	fmt.Println(l.Name, msg)
 }
 
 func (l *Log) Infof(msg string, args ...interface{}) {
-	fmt.Printf(msg, args...)
+	l.Info(fmt.Sprintf(msg, args...))
 }
 
 func (l *Log) Error(err error) {
-	fmt.Printf("%+v", err)
+	l.Info(fmt.Sprintf("ERROR %+v", err))
 }

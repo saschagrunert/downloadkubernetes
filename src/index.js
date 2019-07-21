@@ -1,9 +1,12 @@
 require('./mystyles.scss');
 require('./rememberme.js');
+let recents = require('./recents.js');
+let copylink = require('./copylink.js');
 
 ["os", "arch", "version"].map(function(val){
     eventListener(val);
 });
+recents.fetch();
 
 function eventListener(kind) {
     let buttonGroupQuery = '#' + kind + ' > .button';
@@ -36,9 +39,14 @@ function eventListener(kind) {
 document.querySelectorAll(".copy").forEach(link => {
     link.addEventListener('click', (evt) => {
         evt.preventDefault();
+        console.log(evt.target.href);
+        let data = {
+            url: evt.target.href,
+        }
+        copylink.event(data)
 
         let el = document.createElement("textarea");
-        el.value = this.href;
+        el.value = evt.target.href;
         el.setAttribute("readonly", "");
         el.style.position = 'absolute';
         el.style.left = '-9999px';

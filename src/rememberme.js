@@ -1,8 +1,8 @@
-let URL = require('./endpoints.js');
+let requests = require('./myrequests.js');
 
 let memoryButtonID = 'remember-me';
 let memoryButton = document.getElementById(memoryButtonID);
-let cookieRequest = new Request(URL("/cookie"));
+let cookieRequest = new Request(requests.endpoint("/cookie"));
 
 function setForgetButton() {
     memoryButton.removeEventListener('click', remembeMeClickHandler);
@@ -19,10 +19,7 @@ function setRememberButton() {
 function remembeMeClickHandler(evt) {
     evt.preventDefault();
     memoryButton.disabled = true;
-    fetch(cookieRequest, {
-            mode: 'cors',
-            credentials: 'include'
-        })
+    fetch(cookieRequest, requests.options())
         .then(() => {
             setForgetButton();
             memoryButton.disabled = false;

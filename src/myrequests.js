@@ -1,12 +1,10 @@
-function isDev() {
-    return window.location.hostname === "localhost"
-}
+let env = require('./env.js');
 
 function options() {
     let out = {
         credentials: 'include',
     }
-    if (isDev()) {
+    if (env.isDev()) {
         out['mode'] = 'cors'
     }
     return out
@@ -14,7 +12,7 @@ function options() {
 
 // URL allows us to test in dev.
 function URL(endpoint) {
-    if ((isDev())) {
+    if ((env.isDev())) {
         return "http://localhost:9999" + endpoint
     }
     return endpoint
