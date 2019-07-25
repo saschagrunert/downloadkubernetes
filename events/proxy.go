@@ -4,11 +4,11 @@ package events
 // can register another object?
 
 type CopyEventListener interface {
-	Handle(*LinkCopy) error
+	HandleCopyLinkEvent(*LinkCopy) error
 	ID() string
 }
 type UserIDEventListener interface {
-	Handle(*UserID) error
+	HandleUserIDEvent(*UserID) error
 	ID() string
 }
 
@@ -34,13 +34,13 @@ func (p *Proxy) StartListeners() {
 		select {
 		case copyEvent := <-p.CopyEvents:
 			for _, listener := range p.CopyEventListeners {
-				if err := listener.Handle(copyEvent); err != nil {
+				if err := listener.HandleCopyLinkEvent(copyEvent); err != nil {
 					p.Log.Error(err)
 				}
 			}
 		case userIDEvent := <-p.UserIDEvents:
 			for _, listener := range p.UserIDEventListeners {
-				if err := listener.Handle(userIDEvent); err != nil {
+				if err := listener.HandleUserIDEvent(userIDEvent); err != nil {
 					p.Log.Error(err)
 				}
 			}

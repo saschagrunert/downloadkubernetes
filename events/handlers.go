@@ -24,7 +24,7 @@ type SaveLinkCopyHandler struct {
 	Store SaveCopyLink
 }
 
-func (s *SaveLinkCopyHandler) Handle(l *LinkCopy) error {
+func (s *SaveLinkCopyHandler) HandleCopyLinkEvent(l *LinkCopy) error {
 	return errors.WithStack(s.Store.SaveCopyLinkEvent(l))
 }
 func (h *SaveLinkCopyHandler) ID() string {
@@ -39,7 +39,7 @@ type SaveUserIDCreateHandler struct {
 	Store SaveUserIDEvent
 }
 
-func (s *SaveUserIDCreateHandler) Handle(u *UserID) error {
+func (s *SaveUserIDCreateHandler) HandleUserIDEvent(u *UserID) error {
 	// Filter out non create actions
 	if u.Action != Created {
 		return nil

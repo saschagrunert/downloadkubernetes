@@ -7,6 +7,7 @@ import (
 
 const (
 	Created = "created"
+	Expired = "expired"
 )
 
 // UserIDC is an event that happens when a user id gets created

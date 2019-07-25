@@ -53,9 +53,14 @@ func main() {
 		Store: db,
 	}
 	// Register handlers
+	// handler for the cache to watch for copy events
 	p.RegisterCopyEventListener(c)
+	// handler for saver to write copy events to disk
 	p.RegisterCopyEventListener(saveLinkCopyHandler)
+	// handler for saver to write user ids to disk
 	p.RegisterUserIDEventListeners(saveUserIDCreateHandler)
+	// handler for cache to expire user ids
+	p.RegisterUserIDEventListeners(c)
 	go p.StartListeners()
 
 	mymux := http.NewServeMux()

@@ -16,7 +16,7 @@ func NewCache() *Cache {
 	}
 }
 
-func (c *Cache) Handle(lc *events.LinkCopy) error {
+func (c *Cache) HandleCopyLinkEvent(lc *events.LinkCopy) error {
 	r, ok := c.recents[lc.UserID]
 	if !ok {
 		r = ring.New(5)
@@ -24,6 +24,15 @@ func (c *Cache) Handle(lc *events.LinkCopy) error {
 	}
 	r.Value = *lc
 	c.recents[lc.UserID] = r.Next()
+	return nil
+}
+
+func (c *Cache) HandleUserIDEvent(id *events.UserID) error {
+	if id.Action != events.Expired {
+		return nil
+	}
+
+	delete(c.recents, id.UserID)
 	return nil
 }
 
