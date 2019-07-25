@@ -103,7 +103,11 @@ func (b Binary) Row() string {
 	<td>%s</td>
 	<td>%s</td>
 	<td>%s</td>
-	<td><a class="copy" href="%s">copy link</a></td>`, b.Version, b.OperatingSystem, b.Architecture, b.Name, b.downloadLink())
+	<td>
+		<div class="level">
+		<a class="copy" href="%s">copy link</a>
+		</div>
+	</td>`, b.Version, b.OperatingSystem, b.Architecture, b.Name, b.downloadLink())
 	return fmt.Sprintf(tr, rows)
 }
 func (b Binary) downloadLink() string {
