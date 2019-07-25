@@ -21,8 +21,6 @@ type Store struct {
 	db                *sql.DB
 	insertQueries     map[string]*sql.Stmt
 	userIDstmt        *sql.Stmt
-	getRecentDL       *sql.Stmt
-	saveDL            *sql.Stmt
 	saveLinkCopyEvent *sql.Stmt
 }
 
@@ -40,7 +38,6 @@ func NewStore(database string) (*Store, error) {
 	}
 	// Create all tables if necessary for things that need tables
 	creatingModels := []creators{
-		&models.Download{},
 		&models.UserID{},
 		&events.LinkCopy{},
 		&events.UserID{},
@@ -61,16 +58,9 @@ func NewStore(database string) (*Store, error) {
 		insertQueries[insert.InsertQueryName()] = stmt
 	}
 
-	// prepare fetch queries...might be harder than saves
-	dl := &models.Download{}
-	dlstmt, err := db.Prepare(dl.SelectRecentDownloads(flavor))
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
 	return &Store{
 		db:            db,
 		insertQueries: insertQueries,
-		getRecentDL:   dlstmt,
 	}, nil
 }
 
@@ -93,19 +83,6 @@ func (s *Store) save(queryName string, args ...interface{}) error {
 	return nil
 }
 
-// SaveDownload writes the download to disk
-func (s *Store) SaveDownload(download *models.Download) error {
-	return s.save(download.InsertQueryName(),
-		download.User,
-		download.Downloaded,
-		download.OperatingSystem,
-		download.Architecture,
-		download.Version,
-		download.Binary,
-		download.URL,
-	)
-}
-
 // SaveUserID writes the UserID to disk
 func (s *Store) SaveUserID(userID *models.UserID) error {
 	return s.save(userID.InsertQueryName(), userID.ID, userID.CreateTime, userID.ExpireTime)
@@ -117,27 +94,4 @@ func (s *Store) SaveCopyLinkEvent(evt *events.LinkCopy) error {
 
 func (s *Store) SaveUserIDEvent(evt *events.UserID) error {
 	return s.save(evt.InsertQueryName(), evt.When, evt.UserID, evt.Action)
-}
-
-func (s *Store) GetRecentDownloads(userID *models.UserID, limit int) ([]*models.Download, error) {
-	rows, err := s.getRecentDL.Query(userID.ID, limit)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	defer rows.Close()
-
-	out := make([]*models.Download, limit)
-
-	for rows.Next() {
-		dl := models.Download{}
-		if err := rows.Scan(&dl.OperatingSystem, &dl.Architecture, &dl.Version, &dl.Binary); err != nil {
-			return nil, errors.WithStack(err)
-		}
-		out = append(out, &dl)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return out, nil
 }

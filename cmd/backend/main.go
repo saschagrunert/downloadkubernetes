@@ -68,8 +68,7 @@ func main() {
 	s := backend.NewServer(
 		backend.WithListenAddress(args.addr, args.port),
 		backend.WithMux(mymux),
-		backend.WithStore(db),
-		backend.WithBaker(bakers.NewDumbBaker(10, 5)),
+		backend.WithBaker(bakers.NewDumbBaker(30, 5)),
 		backend.WithDev(args.dev),
 		backend.WithLogger(httpLogger),
 		backend.WithProxy(p),

@@ -9,19 +9,12 @@ import (
 	"time"
 
 	"github.com/chuckha/downloadkubernetes/events"
-	"github.com/chuckha/downloadkubernetes/models"
 )
 
 const (
 	cookieName       = "downloadkubernetes"
 	cookieExpiryDays = 30
 )
-
-// Store are the functions used on the store object.
-// This is entirely for interacting with some storage backend.
-type Store interface {
-	GetRecentDownloads(*models.UserID, int) ([]*models.Download, error)
-}
 
 // Baker will give us cookies.
 type Baker interface {
@@ -51,7 +44,6 @@ type RecentGetter interface {
 // The server itself is an http.Server and then some.
 type Server struct {
 	*http.Server
-	Store        Store
 	Baker        Baker
 	dev          bool
 	Log          Logger
@@ -84,11 +76,6 @@ func WithLogger(l Logger) Option {
 func WithBaker(b Baker) Option {
 	return func(s *Server) {
 		s.Baker = b
-	}
-}
-func WithStore(store Store) Option {
-	return func(s *Server) {
-		s.Store = store
 	}
 }
 func WithListenAddress(host, port string) Option {

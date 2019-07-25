@@ -12,7 +12,6 @@ type Logger interface {
 }
 
 type Store interface {
-	SaveDownload(*models.Download) error
 	SaveUserID(*models.UserID) error
 }
 
