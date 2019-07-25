@@ -55,7 +55,10 @@ type Option func(*Server)
 
 func NewServer(options ...Option) *Server {
 	s := &Server{
-		Server: &http.Server{},
+		Server: &http.Server{
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+		},
 	}
 	for _, option := range options {
 		option(s)
