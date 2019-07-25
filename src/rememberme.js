@@ -31,6 +31,7 @@ function forgetMeClickHandler(evt) {
     evt.preventDefault()
     memoryButton.disabled = true
     document.cookie = 'downloadkubernetes=; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+    location.reload();
     setRememberButton();
     memoryButton.disabled = false;
 }
