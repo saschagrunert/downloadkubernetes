@@ -2,10 +2,44 @@ package backend_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/chuckha/downloadkubernetes/backend"
 	"github.com/chuckha/downloadkubernetes/events"
 )
+
+func TestRecentsAreInOrder(t *testing.T) {
+	c := backend.NewCache()
+	c.HandleCopyLinkEvent(&events.LinkCopy{
+		Event: &events.Event{
+			When: time.Now(),
+		},
+		UserID: "test",
+		URL:    "some url",
+	})
+	c.HandleCopyLinkEvent(&events.LinkCopy{
+		Event: &events.Event{
+			When: time.Now().Add(1 * time.Second),
+		},
+		UserID: "test",
+		URL:    "some url 2",
+	})
+	c.HandleCopyLinkEvent(&events.LinkCopy{
+		Event: &events.Event{
+			When: time.Now().Add(2 * time.Second),
+		},
+		UserID: "test",
+		URL:    "some url 4",
+	})
+	actual := c.Recents("test")
+	expected := []string{"some url", "some url 2", "some url 4"}
+	for i, e := range expected {
+		if actual[i] != e {
+			t.Fatalf("expected %v but got %v", e, actual[i])
+		}
+	}
+
+}
 
 func TestRecents(t *testing.T) {
 	c := backend.NewCache()

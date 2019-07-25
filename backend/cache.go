@@ -2,6 +2,7 @@ package backend
 
 import (
 	"container/ring"
+	"sort"
 
 	"github.com/chuckha/downloadkubernetes/events"
 )
@@ -41,13 +42,34 @@ func (c *Cache) ID() string {
 }
 
 func (c *Cache) Recents(uid string) []string {
-	out := []string{}
+	lcs := []events.LinkCopy{}
+	set := map[events.LinkCopy]struct{}{}
 	c.recents[uid].Do(func(item interface{}) {
 		if item == nil {
 			return
 		}
 		linkCopy := item.(events.LinkCopy)
-		out = append(out, linkCopy.URL)
+		set[linkCopy] = struct{}{}
 	})
+	for k := range set {
+		lcs = append(lcs, k)
+	}
+	sort.Sort(linkcopies(lcs))
+	out := []string{}
+	for _, lc := range lcs {
+		out = append(out, lc.URL)
+	}
 	return out
+}
+
+type linkcopies []events.LinkCopy
+
+func (l linkcopies) Len() int {
+	return len(l)
+}
+func (l linkcopies) Less(i, j int) bool {
+	return l[i].When.Before(l[j].When)
+}
+func (l linkcopies) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }
