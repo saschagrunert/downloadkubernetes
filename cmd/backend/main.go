@@ -37,11 +37,11 @@ func main() {
 		fmt.Printf("%+v\n", err)
 		return
 	}
+
+	// TODO: Could clean this up
 	httpLogger := logging.NewLog("http-logger")
 	eventLogger := logging.NewLog("event-logger")
 	proxyLogger := logging.NewLog("proxy")
-	// TODO understand fmt.Prinltn from a goroutine
-	p := events.NewProxy(proxyLogger)
 
 	c := backend.NewCache()
 	saveLinkCopyHandler := &events.SaveLinkCopyHandler{
@@ -52,15 +52,22 @@ func main() {
 		Log:   eventLogger,
 		Store: db,
 	}
+
+	p := events.NewProxy(proxyLogger)
 	// Register handlers
+
 	// handler for the cache to watch for copy events
 	p.RegisterCopyEventListener(c)
+
 	// handler for saver to write copy events to disk
 	p.RegisterCopyEventListener(saveLinkCopyHandler)
+
 	// handler for saver to write user ids to disk
 	p.RegisterUserIDEventListeners(saveUserIDCreateHandler)
+
 	// handler for cache to expire user ids
 	p.RegisterUserIDEventListeners(c)
+
 	go p.StartListeners()
 
 	mymux := http.NewServeMux()

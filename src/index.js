@@ -43,7 +43,9 @@ document.querySelectorAll(".copy").forEach(link => {
         let data = {
             url: evt.target.href,
         }
-        copylink.event(data)
+        copylink.event(data).then(() => {
+            recents.fetch()
+        })
 
         let el = document.createElement("textarea");
         el.value = evt.target.href;
