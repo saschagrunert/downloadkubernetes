@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	charset    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	charset    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	cookieName = "downloadkubernetes"
 )
 
