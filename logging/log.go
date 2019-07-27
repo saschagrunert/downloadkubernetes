@@ -3,15 +3,17 @@ package logging
 import "fmt"
 
 type Log struct {
-	Name string
+	Name  string
+	Debug bool
 }
 
-func NewLog(name string) *Log {
+func NewLog(name string, debug bool) *Log {
 	if name == "" {
 		name = "default"
 	}
 	return &Log{
-		Name: name,
+		Name:  name,
+		Debug: debug,
 	}
 }
 
@@ -25,4 +27,8 @@ func (l *Log) Infof(msg string, args ...interface{}) {
 
 func (l *Log) Error(err error) {
 	l.Info(fmt.Sprintf("ERROR %+v", err))
+}
+
+func (l *Log) Debugf(format string, args ...interface{}) {
+	l.Info(fmt.Sprintf("DEBUG %s", fmt.Sprintf(format, args...)))
 }

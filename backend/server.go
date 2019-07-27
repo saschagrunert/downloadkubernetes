@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/chuckha/downloadkubernetes/events"
+	"github.com/chuckha/downloadkubernetes/models"
 )
 
 const (
@@ -16,9 +17,9 @@ const (
 	cookieExpiryDays = 30
 )
 
-// Baker will give us cookies.
-type Baker interface {
-	NewCookieForRequest(*http.Request) *http.Cookie
+// Identifier will get UserIDs
+type Identifier interface {
+	Identify() string
 }
 
 // Logger are all the logger functions the server needs
@@ -44,7 +45,7 @@ type RecentGetter interface {
 // The server itself is an http.Server and then some.
 type Server struct {
 	*http.Server
-	Baker        Baker
+	Identifier   Identifier
 	dev          bool
 	Log          Logger
 	Proxy        Proxy
@@ -76,9 +77,9 @@ func WithLogger(l Logger) Option {
 		s.Log = l
 	}
 }
-func WithBaker(b Baker) Option {
+func WithIdentifier(i Identifier) Option {
 	return func(s *Server) {
-		s.Baker = b
+		s.Identifier = i
 	}
 }
 func WithListenAddress(host, port string) Option {
@@ -113,7 +114,6 @@ func (s *Server) Recent(w http.ResponseWriter, r *http.Request, c *http.Cookie) 
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println(string(out))
 	w.Header().Add("Content-Type", "application/json")
 	if _, err := w.Write(out); err != nil {
 		s.Log.Error(err)
@@ -122,13 +122,28 @@ func (s *Server) Recent(w http.ResponseWriter, r *http.Request, c *http.Cookie) 
 	}
 }
 
-// Cookie sets the cookie if there is none or refreshes the cookie
+// NewCookieForRequest ignores the request because this baker is dumb
+func newCookieForRequest(user *models.User) *http.Cookie {
+	return &http.Cookie{
+		Name:     cookieName,
+		Value:    user.ID,
+		Expires:  user.ExpireTime,
+		SameSite: http.SameSiteStrictMode,
+	}
+}
+
+// Cookie sets the cookie if there is none
 func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(cookieName)
 	if err != nil {
 		if err == http.ErrNoCookie {
-			cookie := s.Baker.NewCookieForRequest(r)
-			go s.Proxy.WriteUserIDEvent(events.NewUserID(cookie.Value, events.Created))
+			user := &models.User{
+				ID:         s.Identifier.Identify(),
+				CreateTime: time.Now(),
+				ExpireTime: time.Now().Add(time.Duration(cookieExpiryDays) * 24 * time.Hour),
+			}
+			cookie := newCookieForRequest(user)
+			go s.Proxy.WriteUserIDEvent(events.NewUserID(user, events.Created))
 			http.SetCookie(w, cookie)
 			return
 		}
@@ -136,9 +151,12 @@ func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
-	c.Expires = time.Now().Add(cookieExpiryDays * 24 * time.Hour)
 	http.SetCookie(w, c)
+}
+
+// Forget expires a UserID
+func (s *Server) Forget(w http.ResponseWriter, r *http.Request, c *http.Cookie) {
+	go s.Proxy.WriteUserIDEvent(events.NewUserID(&models.User{ID: c.Value}, events.Expired))
 }
 
 type copyLinkRequest struct {

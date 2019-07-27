@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/chuckha/downloadkubernetes/events"
 	"github.com/chuckha/downloadkubernetes/models"
@@ -16,12 +17,17 @@ const (
 	flavor = "sqlite3"
 )
 
+type storeLogger interface {
+	Debugf(string, ...interface{})
+	Error(error)
+}
+
 // Store holds the database connection and functions to interact with the saved data.
 type Store struct {
-	db                *sql.DB
-	insertQueries     map[string]*sql.Stmt
-	userIDstmt        *sql.Stmt
-	saveLinkCopyEvent *sql.Stmt
+	log              storeLogger
+	db               *sql.DB
+	queries          map[string]*sql.Stmt
+	fetchActiveUsers *sql.Stmt
 }
 
 type creators interface {
@@ -31,14 +37,14 @@ type creators interface {
 }
 
 // NewStore connects to the db and returns a store or an error if any
-func NewStore(database string) (*Store, error) {
+func NewStore(database string, l storeLogger) (*Store, error) {
 	db, err := sql.Open("sqlite3", database)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	// Create all tables if necessary for things that need tables
 	creatingModels := []creators{
-		&models.UserID{},
+		&models.User{},
 		&events.LinkCopy{},
 		&events.UserID{},
 	}
@@ -48,27 +54,42 @@ func NewStore(database string) (*Store, error) {
 		}
 	}
 
-	insertQueries := map[string]*sql.Stmt{}
+	queries := map[string]*sql.Stmt{}
 	// prepare insert statements
 	for _, insert := range creatingModels {
 		stmt, err := db.Prepare(insert.InsertIntoPreparedStatements(flavor))
 		if err != nil {
 			return nil, errors.Wrapf(err, fmt.Sprintf("%+v", insert))
 		}
-		insertQueries[insert.InsertQueryName()] = stmt
+		queries[insert.InsertQueryName()] = stmt
+	}
+
+	id := &models.User{}
+	expireUserIDStmt, err := db.Prepare(id.ExpireUserPreparedStatement(flavor))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	queries["expire-user"] = expireUserIDStmt
+
+	fetchActiveStmt, err := db.Prepare(id.FetchActiveUsersClicksStatement(flavor))
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	return &Store{
-		db:            db,
-		insertQueries: insertQueries,
+		log:              l,
+		db:               db,
+		queries:          queries,
+		fetchActiveUsers: fetchActiveStmt,
 	}, nil
 }
 
-func (s *Store) save(queryName string, args ...interface{}) error {
-	stmt, ok := s.insertQueries[queryName]
+func (s *Store) exec(queryName string, args ...interface{}) error {
+	stmt, ok := s.queries[queryName]
 	if !ok {
 		return errors.Errorf("unknown insert query %s", queryName)
 	}
+	s.log.Debugf("executing a query: %q", queryName)
 	r, err := stmt.Exec(args...)
 	if err != nil {
 		return errors.WithStack(err)
@@ -84,14 +105,45 @@ func (s *Store) save(queryName string, args ...interface{}) error {
 }
 
 // SaveUserID writes the UserID to disk
-func (s *Store) SaveUserID(userID *models.UserID) error {
-	return s.save(userID.InsertQueryName(), userID.ID, userID.CreateTime, userID.ExpireTime)
+func (s *Store) SaveUser(user *models.User) error {
+	return s.exec(user.InsertQueryName(), user.ID, user.CreateTime, user.ExpireTime)
 }
 
+// SaveCopyLinkEvent writes a copy link event to disk
 func (s *Store) SaveCopyLinkEvent(evt *events.LinkCopy) error {
-	return s.save(evt.InsertQueryName(), evt.UserID, evt.When, evt.URL)
+	return s.exec(evt.InsertQueryName(), evt.UserID, evt.When, evt.URL)
 }
 
+// SaveUserIDEvent saves a new user id event to disk
 func (s *Store) SaveUserIDEvent(evt *events.UserID) error {
-	return s.save(evt.InsertQueryName(), evt.When, evt.UserID, evt.Action)
+	return s.exec(evt.InsertQueryName(), evt.When, evt.User.ID, evt.Action)
+}
+
+func (s *Store) ExpireUser(id string) error {
+	return s.exec("expire-user", fmt.Sprintf("%d", time.Now().Unix()), id)
+}
+
+func (s *Store) FetchClicksForUnexpiredUsers() ([]*events.LinkCopy, error) {
+	rows, err := s.fetchActiveUsers.Query(fmt.Sprintf("%d", time.Now().Unix()))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer rows.Close()
+	links := make([]*events.LinkCopy, 0)
+
+	for rows.Next() {
+		link := new(events.LinkCopy)
+		if err := rows.Scan(&link.UserID, &link.URL, &link.When); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		links = append(links, link)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return links, nil
 }

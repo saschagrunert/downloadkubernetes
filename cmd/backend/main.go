@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/chuckha/downloadkubernetes/backend"
 	"github.com/chuckha/downloadkubernetes/bakers"
@@ -32,26 +33,22 @@ func main() {
 	fs.BoolVar(&args.dev, "dev", false, "enable the development server")
 	fs.Parse(os.Args[1:])
 
-	db, err := sqlite.NewStore(dbname)
+	httpLogger := logging.NewLog("http-logger", args.dev)
+	proxyLogger := logging.NewLog("proxy", args.dev)
+	storeLogger := logging.NewLog("store", args.dev)
+	cacheLogger := logging.NewLog("cache", args.dev)
+
+	db, err := sqlite.NewStore(dbname, storeLogger)
 	if err != nil {
-		fmt.Printf("%+v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return
 	}
 
-	// TODO: Could clean this up
-	httpLogger := logging.NewLog("http-logger")
-	eventLogger := logging.NewLog("event-logger")
-	proxyLogger := logging.NewLog("proxy")
-
-	c := backend.NewCache()
-	saveLinkCopyHandler := &events.SaveLinkCopyHandler{
-		Log:   eventLogger,
-		Store: db,
+	c, err := backend.NewCache(db, cacheLogger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 	}
-	saveUserIDCreateHandler := &events.SaveUserIDCreateHandler{
-		Log:   eventLogger,
-		Store: db,
-	}
+	saver := &backend.StoreHandler{db}
 
 	p := events.NewProxy(proxyLogger)
 	// Register handlers
@@ -60,10 +57,10 @@ func main() {
 	p.RegisterCopyEventListener(c)
 
 	// handler for saver to write copy events to disk
-	p.RegisterCopyEventListener(saveLinkCopyHandler)
+	p.RegisterCopyEventListener(saver)
 
 	// handler for saver to write user ids to disk
-	p.RegisterUserIDEventListeners(saveUserIDCreateHandler)
+	p.RegisterUserIDEventListeners(saver)
 
 	// handler for cache to expire user ids
 	p.RegisterUserIDEventListeners(c)
@@ -75,7 +72,7 @@ func main() {
 	s := backend.NewServer(
 		backend.WithListenAddress(args.addr, args.port),
 		backend.WithMux(mymux),
-		backend.WithBaker(bakers.NewDumbBaker(30, 5)),
+		backend.WithIdentifier(bakers.NewDumbIdentifier(30, 5, time.Now().Unix())),
 		backend.WithDev(args.dev),
 		backend.WithLogger(httpLogger),
 		backend.WithProxy(p),
@@ -86,6 +83,7 @@ func main() {
 	mymux.HandleFunc("/cookie", s.LogRequest(s.EnableCORS(s.Cookie)))
 	mymux.HandleFunc("/link-copied", s.LogRequest(s.EnableCORS(s.CopyLinkEvent)))
 	mymux.HandleFunc("/recent-downloads", s.LogRequest(s.EnableCORS(s.CookieRequired(s.Recent))))
+	mymux.HandleFunc("/forget", s.LogRequest(s.EnableCORS(s.CookieRequired(s.Forget))))
 	fmt.Println("Listening on", s.Addr)
 	mode := "prod"
 	if args.dev {

@@ -5,18 +5,46 @@ import (
 	"sort"
 
 	"github.com/chuckha/downloadkubernetes/events"
+	"github.com/pkg/errors"
 )
 
+type cacheLog interface {
+	Debugf(string, ...interface{})
+}
+
+// Cache is responsible for temporary state.
+// Temporary state is any state that goes away between server reloads/deployments.
 type Cache struct {
 	recents map[string]*ring.Ring
+	log     cacheLog
 }
 
-func NewCache() *Cache {
-	return &Cache{
+type store interface {
+	FetchClicksForUnexpiredUsers() ([]*events.LinkCopy, error)
+}
+
+// NewCache creates a cache
+func NewCache(store store, log cacheLog) (*Cache, error) {
+	c := &Cache{
 		recents: map[string]*ring.Ring{},
+		log:     log,
 	}
+	// Hydrate the cache
+	links, err := store.FetchClicksForUnexpiredUsers()
+	c.log.Debugf("hydrating cache with %d entries", len(links))
+	if err != nil {
+		return nil, err
+	}
+	for _, lc := range links {
+		if err := c.HandleCopyLinkEvent(lc); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	}
+	return c, nil
 }
 
+// HandleCopyLinkEvent responds to any LinkCopy events.
+// The cache will build up a datastructure of link copy events as time goes on.
 func (c *Cache) HandleCopyLinkEvent(lc *events.LinkCopy) error {
 	r, ok := c.recents[lc.UserID]
 	if !ok {
@@ -28,19 +56,23 @@ func (c *Cache) HandleCopyLinkEvent(lc *events.LinkCopy) error {
 	return nil
 }
 
+// HandleUserIDEvent will clear out any expired user cache.
+// This is an effort to reduce memory footprint.
 func (c *Cache) HandleUserIDEvent(id *events.UserID) error {
 	if id.Action != events.Expired {
 		return nil
 	}
 
-	delete(c.recents, id.UserID)
+	delete(c.recents, id.User.ID)
 	return nil
 }
 
+// ID identifies what service this is.
 func (c *Cache) ID() string {
 	return "backend-cache"
 }
 
+// Recents returns the most recently clicked links found in the cache.
 func (c *Cache) Recents(uid string) []string {
 	lcs := []events.LinkCopy{}
 	set := map[events.LinkCopy]struct{}{}

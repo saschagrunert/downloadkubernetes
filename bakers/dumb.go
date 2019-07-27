@@ -2,48 +2,31 @@ package bakers
 
 import (
 	"math/rand"
-	"net/http"
-	"time"
 )
 
 const (
-	charset    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	cookieName = "downloadkubernetes"
+	charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
-// DumbBaker implements Baker which is something that makes cookies.
-// This abstraction lets us potentially use smarter ID assigning later on. YAGNI?
-type DumbBaker struct {
+// DumbIdentifier randomly generates ID
+type DumbIdentifier struct {
 	Random   *rand.Rand
 	IDLength int
-	// TTL Is how long the cookie will live for in days
-	TTL int
 }
 
-// NewDumbBaker bakes cookies by randomly assigning an ID
-func NewDumbBaker(idLength, ttl int) *DumbBaker {
-	return &DumbBaker{
-		Random:   rand.New(rand.NewSource(1)),
+// NewDumbIdentifier returns an Identifier with a very simple algorithm
+func NewDumbIdentifier(idLength, ttl int, seed int64) *DumbIdentifier {
+	return &DumbIdentifier{
+		Random:   rand.New(rand.NewSource(seed)),
 		IDLength: idLength,
-		TTL:      ttl,
 	}
 }
 
 // DumbBaker randomly generates an ID for a user
-func (b *DumbBaker) calculateNewID() string {
-	id := make([]byte, b.IDLength)
+func (d *DumbIdentifier) Identify() string {
+	id := make([]byte, d.IDLength)
 	for i := range id {
-		id[i] = charset[b.Random.Intn(len(charset))]
+		id[i] = charset[d.Random.Intn(len(charset))]
 	}
 	return string(id)
-}
-
-// NewCookieForRequest ignores the request because this baker is dumb
-func (b *DumbBaker) NewCookieForRequest(_ *http.Request) *http.Cookie {
-	return &http.Cookie{
-		Name:     cookieName,
-		Value:    b.calculateNewID(),
-		Expires:  time.Now().Add(time.Duration(b.TTL) * 24 * time.Hour),
-		SameSite: http.SameSiteStrictMode,
-	}
 }

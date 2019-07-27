@@ -3,6 +3,8 @@ package events
 import (
 	"fmt"
 	"time"
+
+	"github.com/chuckha/downloadkubernetes/models"
 )
 
 const (
@@ -10,22 +12,25 @@ const (
 	Expired = "expired"
 )
 
-// UserIDC is an event that happens when a user id gets created
+// UserID is an event that happens when a user id gets created
 type UserID struct {
 	*Event
 
-	// UserID is the created user id
-	UserID string
+	// User is the user being modified
+	User *models.User
 	// Action is what happened to the User ID
 	Action string
 }
 
-func NewUserID(userid, action string) *UserID {
+func NewUserID(user *models.User, action string) *UserID {
+	if user == nil {
+		user = &models.User{}
+	}
 	return &UserID{
 		Event: &Event{
 			When: time.Now(),
 		},
-		UserID: userid,
+		User:   user,
 		Action: action,
 	}
 }
