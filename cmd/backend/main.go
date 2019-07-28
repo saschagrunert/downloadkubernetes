@@ -20,9 +20,10 @@ const (
 
 // serverConfig holds the command line arguments to set various options on the server.
 type serverConfig struct {
-	addr string
-	port string
-	dev  bool
+	addr  string
+	port  string
+	dev   bool
+	debug bool
 }
 
 func main() {
@@ -31,13 +32,14 @@ func main() {
 	fs.StringVar(&args.port, "port", "9999", "The port to listen on")
 	fs.StringVar(&args.addr, "address", "127.0.0.1", "TCP address to listen on")
 	fs.BoolVar(&args.dev, "dev", false, "enable the development server")
+	fs.BoolVar(&args.debug, "debug", false, "show debug logs")
 	fs.Parse(os.Args[1:])
 
-	httpLogger := logging.NewLog("http-logger", args.dev)
-	proxyLogger := logging.NewLog("proxy", args.dev)
-	storeLogger := logging.NewLog("store", args.dev)
-	cacheLogger := logging.NewLog("cache", args.dev)
-	storeHandlerLogger := logging.NewLog("store-handler", args.dev)
+	httpLogger := logging.NewLog("http-logger", args.debug)
+	proxyLogger := logging.NewLog("proxy", args.debug)
+	storeLogger := logging.NewLog("store", args.debug)
+	cacheLogger := logging.NewLog("cache", args.debug)
+	storeHandlerLogger := logging.NewLog("store-handler", args.debug)
 
 	db, err := sqlite.NewStore(dbname, storeLogger)
 	if err != nil {

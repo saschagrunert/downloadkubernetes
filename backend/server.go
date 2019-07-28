@@ -27,6 +27,7 @@ type Logger interface {
 	Info(string)
 	Infof(string, ...interface{})
 	Error(error)
+	Debugf(string, ...interface{})
 }
 
 type EventHandler interface {
@@ -142,7 +143,14 @@ func (s *Server) Cookie(w http.ResponseWriter, r *http.Request) {
 				CreateTime: time.Now(),
 				ExpireTime: time.Now().Add(time.Duration(cookieExpiryDays) * 24 * time.Hour),
 			}
-			cookie := newCookieForRequest(user)
+			cookie := &http.Cookie{
+				Name:     cookieName,
+				Value:    user.ID,
+				Path:     "/",
+				Expires:  user.ExpireTime,
+				SameSite: http.SameSiteStrictMode,
+			}
+			s.Log.Debugf("%q", cookie.String())
 			go s.Proxy.WriteUserIDEvent(events.NewUserID(user, events.Created))
 			http.SetCookie(w, cookie)
 			return

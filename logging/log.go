@@ -30,5 +30,8 @@ func (l *Log) Error(err error) {
 }
 
 func (l *Log) Debugf(format string, args ...interface{}) {
+	if !l.Debug {
+		return
+	}
 	l.Info(fmt.Sprintf("DEBUG %s", fmt.Sprintf(format, args...)))
 }

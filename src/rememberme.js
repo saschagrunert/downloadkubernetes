@@ -21,7 +21,9 @@ function remembeMeClickHandler(evt) {
     evt.preventDefault();
     memoryButton.disabled = true;
     fetch(cookieRequest, requests.options())
-        .then(() => {
+        .then((response) => {
+            console.log(response);
+            document.cookie = response.headers.get('Set-Cookie');
             setForgetButton();
             memoryButton.disabled = false;
         })
