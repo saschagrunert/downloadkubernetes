@@ -58,7 +58,9 @@ WHERE id = ?`
 func (u *User) FetchActiveUsersClicksStatement(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `SELECT u.id, c.url, c.when FROM user_ids AS u JOIN copy_link_events as c
+		return `SELECT u.id, c.url, c.created
+FROM user_ids AS u JOIN copy_link_events as c
+ON u.id = c.user
 WHERE u.expire_time > ?`
 	default:
 		return fmt.Sprintf("Unknown flavor %q", flavor)

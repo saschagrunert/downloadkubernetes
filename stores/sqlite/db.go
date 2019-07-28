@@ -92,14 +92,14 @@ func (s *Store) exec(queryName string, args ...interface{}) error {
 	s.log.Debugf("executing a query: %q", queryName)
 	r, err := stmt.Exec(args...)
 	if err != nil {
-		return errors.WithStack(err)
+		return errors.Wrap(err, queryName)
 	}
 	affected, err := r.RowsAffected()
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if affected != 1 {
-		return errors.Errorf("more or less than 1 row affected: %d", affected)
+	if affected > 1 {
+		return errors.Errorf("more than 1 row affected: %d", affected)
 	}
 	return nil
 }
@@ -111,12 +111,12 @@ func (s *Store) SaveUser(user *models.User) error {
 
 // SaveCopyLinkEvent writes a copy link event to disk
 func (s *Store) SaveCopyLinkEvent(evt *events.LinkCopy) error {
-	return s.exec(evt.InsertQueryName(), evt.UserID, evt.When, evt.URL)
+	return s.exec(evt.InsertQueryName(), evt.InsertIntoArgs()...)
 }
 
 // SaveUserIDEvent saves a new user id event to disk
 func (s *Store) SaveUserIDEvent(evt *events.UserID) error {
-	return s.exec(evt.InsertQueryName(), evt.When, evt.User.ID, evt.Action)
+	return s.exec(evt.InsertQueryName(), evt.Created, evt.User.ID, evt.Action)
 }
 
 func (s *Store) ExpireUser(id string) error {
@@ -133,7 +133,8 @@ func (s *Store) FetchClicksForUnexpiredUsers() ([]*events.LinkCopy, error) {
 
 	for rows.Next() {
 		link := new(events.LinkCopy)
-		if err := rows.Scan(&link.UserID, &link.URL, &link.When); err != nil {
+		link.Event = &events.Event{}
+		if err := rows.Scan(&link.UserID, &link.URL, &link.Created); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		links = append(links, link)

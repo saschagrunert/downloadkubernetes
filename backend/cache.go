@@ -75,12 +75,17 @@ func (c *Cache) ID() string {
 // Recents returns the most recently clicked links found in the cache.
 func (c *Cache) Recents(uid string) []string {
 	lcs := []events.LinkCopy{}
+	dupes := map[string]struct{}{}
 	set := map[events.LinkCopy]struct{}{}
 	c.recents[uid].Do(func(item interface{}) {
 		if item == nil {
 			return
 		}
 		linkCopy := item.(events.LinkCopy)
+		if _, ok := dupes[linkCopy.URL]; ok {
+			return
+		}
+		dupes[linkCopy.URL] = struct{}{}
 		set[linkCopy] = struct{}{}
 	})
 	for k := range set {
@@ -100,7 +105,7 @@ func (l linkcopies) Len() int {
 	return len(l)
 }
 func (l linkcopies) Less(i, j int) bool {
-	return l[i].When.Before(l[j].When)
+	return l[i].Created < l[j].Created
 }
 func (l linkcopies) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]

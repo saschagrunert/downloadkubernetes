@@ -16,8 +16,13 @@ type handlerStore interface {
 	ExpireUser(string) error
 }
 
+type storehandlerLog interface {
+	Debugf(string, ...interface{})
+}
+
 type StoreHandler struct {
 	Store handlerStore
+	Log   storehandlerLog
 }
 
 func (s *StoreHandler) ID() string {
@@ -31,6 +36,7 @@ func (s *StoreHandler) HandleCopyLinkEvent(l *events.LinkCopy) error {
 func (s *StoreHandler) HandleUserIDEvent(u *events.UserID) error {
 	switch u.Action {
 	case events.Expired:
+		s.Log.Debugf("expiring user %q", u.User.ID)
 		return errors.WithStack(s.Store.ExpireUser(u.User.ID))
 	case events.Created:
 		if err := s.Store.SaveUser(u.User); err != nil {

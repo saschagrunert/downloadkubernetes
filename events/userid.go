@@ -28,7 +28,7 @@ func NewUserID(user *models.User, action string) *UserID {
 	}
 	return &UserID{
 		Event: &Event{
-			When: time.Now(),
+			Created: time.Now().Unix(),
 		},
 		User:   user,
 		Action: action,
@@ -42,10 +42,11 @@ func (u *UserID) InsertQueryName() string {
 func (l *UserID) CreateTableIfNotExistsQueries(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `CREATE TABLE IF NOT EXISTS user_id_events (
-happened text,
-user_id text,
-action text
+		return `CREATE TABLE IF NOT EXISTS user_id_events
+(
+	created integer,
+	user_id text,
+	action text
 )`
 	default:
 		return fmt.Sprintf("unknown flavor %s", flavor)
@@ -55,7 +56,7 @@ action text
 func (l *UserID) InsertIntoPreparedStatements(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `INSERT INTO user_id_events (happened, user_id, action) VALUES (?, ?, ?)`
+		return `INSERT INTO user_id_events (created, user_id, action) VALUES (?, ?, ?)`
 	default:
 		return fmt.Sprintf("unknown flavor %s", flavor)
 	}

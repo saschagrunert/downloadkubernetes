@@ -19,7 +19,7 @@ type LinkCopy struct {
 func NewLinkCopyEvent(userID, url string) *LinkCopy {
 	return &LinkCopy{
 		Event: &Event{
-			When: time.Now(),
+			Created: time.Now().Unix(),
 		},
 		UserID: userID,
 		URL:    url,
@@ -35,8 +35,8 @@ func (l *LinkCopy) CreateTableIfNotExistsQueries(flavor string) string {
 	case "sqlite3":
 		return `CREATE TABLE IF NOT EXISTS copy_link_events
 (
-	happened text,
-	user text PRIMARY KEY,
+	created integer,
+	user text,
 	url text
 );`
 	default:
@@ -47,15 +47,16 @@ func (l *LinkCopy) CreateTableIfNotExistsQueries(flavor string) string {
 func (l *LinkCopy) InsertIntoPreparedStatements(flavor string) string {
 	switch flavor {
 	case "sqlite3":
-		return `INSERT INTO copy_link_events (
-happened, user, url
-)
-VALUES (
-	?, ?, ?
-)`
+		return `INSERT INTO copy_link_events
+(created, user, url)
+VALUES (?, ?, ?);`
 	default:
 		return fmt.Sprintf("unknown flavor %s", flavor)
 	}
+}
+
+func (l *LinkCopy) InsertIntoArgs() []interface{} {
+	return []interface{}{l.Created, l.UserID, l.URL}
 }
 
 // RipApart returns version, os, arch, bin which may all be empty

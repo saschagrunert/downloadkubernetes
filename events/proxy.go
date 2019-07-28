@@ -1,7 +1,5 @@
 package events
 
-import "fmt"
-
 // object that watches all event types
 // can register another object?
 
@@ -44,7 +42,6 @@ func (p *Proxy) StartListeners() {
 		case copyEvent := <-p.CopyEvents:
 			for _, listener := range p.CopyEventListeners {
 				if err := listener.HandleCopyLinkEvent(copyEvent); err != nil {
-					fmt.Println("I Bet you will never see this.")
 					p.Log.Error(err)
 				}
 			}

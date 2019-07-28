@@ -37,6 +37,7 @@ func main() {
 	proxyLogger := logging.NewLog("proxy", args.dev)
 	storeLogger := logging.NewLog("store", args.dev)
 	cacheLogger := logging.NewLog("cache", args.dev)
+	storeHandlerLogger := logging.NewLog("store-handler", args.dev)
 
 	db, err := sqlite.NewStore(dbname, storeLogger)
 	if err != nil {
@@ -48,7 +49,7 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%+v\n", err)
 	}
-	saver := &backend.StoreHandler{db}
+	saver := &backend.StoreHandler{db, storeHandlerLogger}
 
 	p := events.NewProxy(proxyLogger)
 	// Register handlers
